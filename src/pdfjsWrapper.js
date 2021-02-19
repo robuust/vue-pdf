@@ -1,4 +1,4 @@
-import { PDFLinkService } from 'pdfjs-dist/es5/web/pdf_viewer';
+import { PDFLinkService } from 'pdfjs-dist-sig/es5/web/pdf_viewer';
 
 var pendingOperation = Promise.resolve();
 
@@ -42,7 +42,7 @@ export default function(PDFJS) {
 	}
 
 
-	function PDFJSWrapper(canvasElt, annotationLayerElt, emitEvent) {
+	function PDFJSWrapper(canvasElt, annotationLayerElt, emitter) {
 
 		var pdfDoc = null;
 		var pdfPage = null;
@@ -182,7 +182,7 @@ export default function(PDFJS) {
 				.catch(function(err) {
 
 					removeIframe();
-					emitEvent('error', err);
+					emitter.emit('error', err);
 				})
 			})
 		}
@@ -205,7 +205,7 @@ export default function(PDFJS) {
 			var scale = canvasElt.offsetWidth / pdfPage.getViewport({ scale: 1 }).width * (window.devicePixelRatio || 1);
 			var viewport = pdfPage.getViewport({ scale: scale, rotation:pageRotate });
 
-			emitEvent('page-size', viewport.width, viewport.height, scale);
+			emitter.emit('page-size', { width: viewport.width, height: viewport.height, scale });
 
 			canvasElt.width = viewport.width;
 			canvasElt.height = viewport.height;
@@ -220,7 +220,7 @@ export default function(PDFJS) {
 
 			var viewer = {
 				scrollPageIntoView: function(params) {
-					emitEvent('link-clicked', params.pageNumber)
+					emitter.emit('link-clicked', params.pageNumber)
 				},
 			};
 
@@ -261,7 +261,7 @@ export default function(PDFJS) {
 						this.renderPage(rotate);
 						return;
 					}
-					emitEvent('error', err);
+					emitter.emit('error', err);
 				}.bind(this))
 
 				return Promise.all([getAnnotationsOperation, pdfRenderOperation]);
@@ -287,7 +287,6 @@ export default function(PDFJS) {
 
 
 		this.loadPage = function(pageNumber, rotate) {
-
 			pdfPage = null;
 
 			if ( pdfDoc === null )
@@ -301,13 +300,13 @@ export default function(PDFJS) {
 
 				pdfPage = page;
 				this.renderPage(rotate);
-				emitEvent('page-loaded', page.pageNumber);
+				emitter.emit('page-loaded', page.pageNumber);
 			}.bind(this))
 			.catch(function(err) {
 
 				clearCanvas();
 				clearAnnotations();
-				emitEvent('error', err);
+				emitter.emit('error', err);
 			});
 		}
 
@@ -316,7 +315,7 @@ export default function(PDFJS) {
 			pdfDoc = null;
 			pdfPage = null;
 
-			emitEvent('num-pages', undefined);
+			emitter.emit('num-pages', undefined);
 
 			if ( !src ) {
 
@@ -334,7 +333,7 @@ export default function(PDFJS) {
 
 					if ( src.destroyed ) {
 
-						emitEvent('error', new Error('loadingTask has been destroyed'));
+						emitter.emit('error', new Error('loadingTask has been destroyed'));
 						return
 					}
 
@@ -353,12 +352,12 @@ export default function(PDFJS) {
 									reasonStr = 'INCORRECT_PASSWORD';
 									break;
 							}
-							emitEvent('password', updatePassword, reasonStr);
+							emitter.emit('password', updatePassword, reasonStr);
 						},
 						onProgress: function(status) {
 
 							var ratio = status.loaded / status.total;
-							emitEvent('progress', Math.min(ratio, 1));
+							emitter.emit('progress', Math.min(ratio, 1));
 						}
 					});
 				}
@@ -368,14 +367,14 @@ export default function(PDFJS) {
 			.then(function(pdf) {
 
 				pdfDoc = pdf;
-				emitEvent('num-pages', pdf.numPages);
-				emitEvent('loaded');
+				emitter.emit('num-pages', pdf.numPages);
+				emitter.emit('loaded');
 			})
 			.catch(function(err) {
 
 				clearCanvas();
 				clearAnnotations();
-				emitEvent('error', err);
+				emitter.emit('error', err);
 			})
 		}
 
