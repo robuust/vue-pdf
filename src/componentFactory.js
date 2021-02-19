@@ -1,4 +1,6 @@
-import resizeSensor from 'vue-resize-sensor'
+import resizeSensor from 'vue3-resize-sensor'
+import { h } from 'vue'
+import mitt from 'mitt'
 
 export default function(pdfjsWrapper) {
 
@@ -7,16 +9,12 @@ export default function(pdfjsWrapper) {
 
 	return {
 		createLoadingTask: createLoadingTask,
-		render: function(h) {
+		render: function() {
 			return h('span', {
-				attrs: {
-					style: 'position: relative; display: block'
-				}
+				style: 'position: relative; display: block'
 			}, [
 				h('canvas', {
-					attrs: {
-						style: 'display: inline-block; width: 100%; height: 100%; vertical-align: top',
-					},
+					style: 'display: inline-block; width: 100%; height: 100%; vertical-align: top',
 					ref:'canvas'
 				}),
 				h('span', {
@@ -85,16 +83,15 @@ export default function(pdfjsWrapper) {
 
 		// doc: mounted hook is not called during server-side rendering.
 		mounted: function() {
+			const emitter = mitt()
 
-			this.pdf = new PDFJSWrapper(this.$refs.canvas, this.$refs.annotationLayer, this.$emit.bind(this));
+			this.pdf = new PDFJSWrapper(this.$refs.canvas, this.$refs.annotationLayer, emitter);
 
-			this.$on('loaded', function() {
-
+			emitter.on('loaded', () => {
 				this.pdf.loadPage(this.page, this.rotate);
 			});
 
-			this.$on('page-size', function(width, height) {
-
+			emitter.on('page-size', ({ width, height }) => {
 				this.$refs.canvas.style.height = this.$refs.canvas.offsetWidth * (height / width) + 'px';
 			});
 
@@ -102,7 +99,7 @@ export default function(pdfjsWrapper) {
 		},
 
 		// doc: destroyed hook is not called during server-side rendering.
-		destroyed: function() {
+		unmounted: function() {
 
 			this.pdf.destroy();
 		}
